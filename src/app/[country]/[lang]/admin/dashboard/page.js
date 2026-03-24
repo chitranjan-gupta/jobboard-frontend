@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useJobs } from '@/context/JobContext';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import JobDetailsModal from '@/components/JobDetailsModal';
+import PaginationControls from '@/components/PaginationControls';
 import Image from 'next/image';
 
 export default function JobsDashboardPage() {
-    const { jobs, loading, deleteJob, requestJobDeletion, approveJobDeletion, rejectJobDeletion, approveJob, rejectJob } = useJobs();
+    const { jobs, loading, deleteJob, requestJobDeletion, approveJobDeletion, rejectJobDeletion, approveJob, rejectJob, totalCount, refreshJobs, uploadJobsCSV } = useJobs();
     const { user } = useAuth();
     const { isTronMode } = useTheme();
     const router = useRouter();
     const params = useParams();
+    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
     
     const country = params.country || 'us';
     const lang = params.lang || 'en';
@@ -36,7 +39,7 @@ export default function JobsDashboardPage() {
             const labels = {
                 approved: 'APPROVED',
                 pending: 'PENDING',
-                rejected: 'REJECTED',
+                deleted: 'TERMINATED',
                 pending_deletion: 'DELETION REQUEST',
             };
             return labels[status] || status.toUpperCase();
@@ -123,9 +126,44 @@ export default function JobsDashboardPage() {
         );
     };
 
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            const result = await uploadJobsCSV(file);
+            let msg = `Bulk Upload Complete!\n\nAdded: ${result.added}\nSkipped: ${result.skipped}`;
+            
+            if (result.skipped_details && result.skipped_details.length > 0) {
+                console.log('Skipped Items:', result.skipped_details);
+                msg += `\n\nCheck console for skipped item details/reasons.`;
+            }
+            
+            if (result.errors && result.errors.length > 0) {
+                msg += `\nErrors: ${result.errors.length} failed.`;
+                console.error('Bulk Upload Errors:', result.errors);
+            }
+            alert(msg);
+        } catch (error) {
+            alert(error.message || 'Failed to bulk upload jobs.');
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     const pendingCount = jobs.filter(j => j.status === 'pending').length;
 
-    if (loading) {
+    const ITEMS_PER_PAGE = 20;
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil((totalCount || 0) / ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        refreshJobs(`/jobs/?page=${currentPage}`);
+    }, [currentPage, refreshJobs]);
+
+    if (loading && jobs.length === 0) {
         return (
             <div className="flex items-center justify-center p-12">
                 <div className={`animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 ${isTronMode ? 'border-neon-cyan drop-shadow-[0_0_8px_rgba(0,243,254,0.8)]' : 'border-primary'}`}></div>
@@ -218,9 +256,31 @@ export default function JobsDashboardPage() {
                         {isTronMode ? '// MANAGE_OPEN_CONNECTION_POINTS' : 'Overview of all job listings submitted to the platform.'}
                     </p>
                 </div>
-                <Link href={`/${country}/${lang}/admin/jobs/new`} className={`shrink-0 uppercase font-black text-[0.8rem] transition-all duration-300 ${isTronMode ? 'btn-outline border-none text-neon-cyan tracking-[0.2em] bg-neon-cyan/10 hover:bg-neon-cyan hover:text-black shadow-[0_0_20px_rgba(0,243,254,0.3)]' : 'btn-primary px-6 py-2.5 shadow-md rounded-xl'}`}>
-                    {isTronMode ? '> INIT_NEW_NODE' : '+ Post New Job'}
-                </Link>
+                <div className="flex items-center gap-3 shrink-0">
+                    <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className={`flex items-center gap-2 uppercase tracking-[0.2em] text-[0.7rem] font-black disabled:opacity-50 transition-all duration-300 ${isTronMode ? 'btn-outline border-slate-700 text-slate-400 hover:text-neon-cyan hover:border-neon-cyan/50 hover:bg-neon-cyan/10 px-4 py-2.5' : 'px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-sm'}`}
+                    >
+                        {uploading ? (
+                            <div className={`w-4 h-4 border-2 rounded-full animate-spin ${isTronMode ? 'border-neon-cyan border-t-transparent' : 'border-primary border-t-transparent'}`}></div>
+                        ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        )}
+                        {isTronMode ? 'LOAD_BATCH_[CSV]' : 'Bulk Upload'}
+                    </button>
+
+                    <Link href={`/${country}/${lang}/admin/jobs/new`} className={`shrink-0 uppercase font-black text-[0.8rem] transition-all duration-300 ${isTronMode ? 'btn-outline border-none text-neon-cyan tracking-[0.2em] bg-neon-cyan/10 hover:bg-neon-cyan hover:text-black shadow-[0_0_20px_rgba(0,243,254,0.3)] px-6 py-2.5' : 'btn-primary px-6 py-2.5 shadow-md rounded-xl text-white'}`}>
+                        {isTronMode ? '> INIT_NEW_NODE' : '+ Post New Job'}
+                    </Link>
+                </div>
             </div>
 
             <div className={`overflow-hidden transition-all duration-300 ${isTronMode ? 'glass-panel border-2 border-ares-red/30 shadow-[0_0_30px_rgba(255,30,30,0.15)] relative' : 'bg-white rounded-2xl border border-slate-200 shadow-xl'}`}
@@ -385,6 +445,15 @@ export default function JobsDashboardPage() {
                     </table>
                 </div>
             </div>
+            
+            <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={totalCount || 0}
+                itemsPerPage={ITEMS_PER_PAGE}
+                itemName={isTronMode ? 'GRID_NODES' : 'JOBS'}
+            />
         </div>
     );
 }

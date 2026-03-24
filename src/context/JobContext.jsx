@@ -14,14 +14,28 @@ export const JobProvider = ({ children }) => {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [nextUrl, setNextUrl] = useState(null);
+    const [prevUrl, setPrevUrl] = useState(null);
+    const [totalCount, setTotalCount] = useState(0);
 
-    const fetchJobs = useCallback(async () => {
+    const fetchJobs = useCallback(async (url = `/jobs/`) => {
         setLoading(true);
         try {
-            const response = await fetchWithAuth(`/jobs/`);
+            const response = await fetchWithAuth(url);
             if (!response.ok) throw new Error('Failed to fetch jobs');
             const data = await response.json();
-            setJobs(data);
+            
+            if (data && data.results !== undefined) {
+                setJobs(data.results);
+                setNextUrl(data.next);
+                setPrevUrl(data.previous);
+                setTotalCount(data.count);
+            } else {
+                setJobs(data);
+                setNextUrl(null);
+                setPrevUrl(null);
+                setTotalCount(data.length || 0);
+            }
             setError(null);
         } catch (err) {
             console.warn("[JobContext] Error fetching jobs:", err.message);
@@ -130,6 +144,9 @@ export const JobProvider = ({ children }) => {
             setJobs,
             loading,
             error,
+            nextUrl,
+            prevUrl,
+            totalCount,
             addJob,
             updateJob,
             deleteJob,
@@ -139,7 +156,23 @@ export const JobProvider = ({ children }) => {
             approveJob,
             rejectJob,
             getJobById,
-            refreshJobs: fetchJobs
+            refreshJobs: fetchJobs,
+            uploadJobsCSV: async (file) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const response = await fetchWithAuth(`/jobs/bulk_upload/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {}, // fetchWithAuth handles auth, but we don't want JSON content-type
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to upload jobs');
+                }
+                const data = await response.json();
+                await fetchJobs();
+                return data;
+            }
         }}>
             {children}
         </JobContext.Provider>

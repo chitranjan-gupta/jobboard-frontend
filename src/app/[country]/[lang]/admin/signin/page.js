@@ -22,11 +22,16 @@ export default function SigninPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        const success = await login(username, password);
-        if (success) {
+        const result = await login(username, password);
+        if (result.success) {
             router.push(`/${country}/${lang}/admin/dashboard`);
         } else {
-            setError(isTronMode ? 'Invalid credentials. Access Denied.' : 'Invalid username or password. Please try again.');
+            // Check for specific backend messages
+            if (result.error && (result.error.includes("revoked") || result.error.includes("pending"))) {
+                setError(isTronMode ? `[AUTH_ERROR] ${result.error}` : result.error);
+            } else {
+                setError(isTronMode ? 'Invalid credentials. Access Denied.' : 'Invalid username or password. Please try again.');
+            }
         }
     };
 

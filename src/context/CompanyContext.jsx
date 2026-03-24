@@ -14,14 +14,28 @@ export const CompanyProvider = ({ children }) => {
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [nextUrl, setNextUrl] = useState(null);
+    const [prevUrl, setPrevUrl] = useState(null);
+    const [totalCount, setTotalCount] = useState(0);
 
-    const fetchCompanies = useCallback(async () => {
+    const fetchCompanies = useCallback(async (url = `/companies/`) => {
         setLoading(true);
         try {
-            const response = await fetchWithAuth(`/companies/`);
+            const response = await fetchWithAuth(url);
             if (!response.ok) throw new Error('Failed to fetch companies');
             const data = await response.json();
-            setCompanies(data);
+            
+            if (data && data.results !== undefined) {
+                setCompanies(data.results);
+                setNextUrl(data.next);
+                setPrevUrl(data.previous);
+                setTotalCount(data.count);
+            } else {
+                setCompanies(data);
+                setNextUrl(null);
+                setPrevUrl(null);
+                setTotalCount(data.length || 0);
+            }
             setError(null);
         } catch (err) {
             console.warn("[CompanyContext] Error fetching companies:", err.message);
@@ -133,6 +147,9 @@ export const CompanyProvider = ({ children }) => {
             companies,
             loading,
             error,
+            nextUrl,
+            prevUrl,
+            totalCount,
             fetchCompanies,
             addCompany,
             updateCompany,

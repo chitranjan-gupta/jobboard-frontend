@@ -1,11 +1,28 @@
 "use client";
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import JobCard from './JobCard';
+import PaginationControls from './PaginationControls';
 
-const JobList = ({ jobs, sortBy, setSortBy, onJobClick }) => {
+const JobList = ({ jobs, totalCount, currentPage, onPageChange, sortBy, setSortBy, onJobClick, loading }) => {
     const { isTronMode } = useTheme();
     const { t } = useTranslation();
+
+    const ITEMS_PER_PAGE = 20;
+    const totalPages = Math.ceil((totalCount || 0) / ITEMS_PER_PAGE);
+
+    // Map frontend sort values to backend ordering parameters
+    const getBackendSortValue = (val) => {
+        if (val === 'recent') return '-postedAt';
+        if (val === 'relevant') return 'title'; // Simple fallback for now
+        return val;
+    };
+
+    const handleSortChange = (e) => {
+        const newVal = e.target.value;
+        setSortBy(newVal);
+    };
 
     return (
         <section className="flex-1 min-w-0">
@@ -30,8 +47,12 @@ const JobList = ({ jobs, sortBy, setSortBy, onJobClick }) => {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4">
-                {jobs.length === 0 ? (
+            <div className={`relative flex flex-col gap-4 ${loading && jobs.length > 0 ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                {loading && jobs.length === 0 ? (
+                    <div className="flex items-center justify-center p-12">
+                        <div className={`animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 ${isTronMode ? 'border-neon-cyan drop-shadow-[0_0_8px_rgba(0,243,254,0.8)]' : 'border-primary'}`}></div>
+                    </div>
+                ) : jobs.length === 0 ? (
                     <div className={`text-center py-20 px-6 border transition-all duration-300 animate-fade-in ${isTronMode ? 'glass-panel border-ares-red/30 shadow-[inset_0_0_20px_rgba(255,30,30,0.1)]' : 'bg-white border-dashed border-slate-200 text-slate-500 rounded-2xl'
                         }`}
                         style={isTronMode ? { clipPath: 'polygon(2% 0, 100% 0, 100% 90%, 98% 100%, 0 100%, 0 10%)' } : {}}
@@ -46,9 +67,19 @@ const JobList = ({ jobs, sortBy, setSortBy, onJobClick }) => {
                         <p className={`font-bold tracking-widest text-[0.7rem] uppercase ${isTronMode ? 'font-["Share_Tech_Mono"] text-slate-500' : 'text-sm'}`}>{isTronMode ? 'RECALIBRATE_SEARCH_PARAMETERS' : t('joblist.try_adjusting')}</p>
                     </div>
                 ) : (
-                    jobs.map((job, index) => (
-                        <JobCard key={job.id} job={job} index={index} onClick={() => onJobClick(job)} />
-                    ))
+                    <>
+                        {jobs.map((job, index) => (
+                            <JobCard key={job.id} job={job} index={index} onClick={() => onJobClick(job)} />
+                        ))}
+                        <PaginationControls
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={onPageChange}
+                            totalItems={totalCount || 0}
+                            itemsPerPage={ITEMS_PER_PAGE}
+                            itemName={isTronMode ? 'DATA_STREAMS' : 'JOBS'}
+                        />
+                    </>
                 )}
             </div>
         </section>

@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useCompanies } from '@/context/CompanyContext';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import PaginationControls from '@/components/PaginationControls';
 import Image from 'next/image';
 
 export default function CompaniesDashboardPage() {
-    const { companies, loading, deleteCompany, approveCompany, rejectCompany, uploadCompaniesCSV } = useCompanies();
+    const { companies, loading, deleteCompany, approveCompany, rejectCompany, uploadCompaniesCSV, totalCount, fetchCompanies } = useCompanies();
     const { user } = useAuth();
     const { isTronMode } = useTheme();
     const router = useRouter();
@@ -70,9 +71,15 @@ export default function CompaniesDashboardPage() {
         setUploading(true);
         try {
             const result = await uploadCompaniesCSV(file);
-            let msg = `Bulk Upload Complete!\n\nAdded: ${result.added}\nSkipped (Duplicates): ${result.skipped}`;
+            let msg = `Bulk Upload Complete!\n\nAdded: ${result.added}\nSkipped: ${result.skipped}`;
+            
+            if (result.skipped_details && result.skipped_details.length > 0) {
+                console.log('Skipped Items:', result.skipped_details);
+                msg += `\n\nCheck console for skipped item details/reasons.`;
+            }
+            
             if (result.errors && result.errors.length > 0) {
-                msg += `\nErrors: ${result.errors.length} rows failed to parse.`;
+                msg += `\nErrors: ${result.errors.length} failed.`;
                 console.error('Bulk Upload Errors:', result.errors);
             }
             alert(msg);
@@ -86,7 +93,15 @@ export default function CompaniesDashboardPage() {
 
     const pendingCount = companies.filter(c => c.status === 'pending').length;
 
-    if (loading) {
+    const ITEMS_PER_PAGE = 20;
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil((totalCount || 0) / ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        fetchCompanies(`/companies/?page=${currentPage}`);
+    }, [currentPage, fetchCompanies]);
+
+    if (loading && companies.length === 0) {
         return (
             <div className="flex items-center justify-center p-12">
                 <div className={`animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 ${isTronMode ? 'border-neon-cyan drop-shadow-[0_0_8px_rgba(0,243,254,0.8)]' : 'border-primary'}`}></div>
@@ -114,7 +129,7 @@ export default function CompaniesDashboardPage() {
                 <div className="flex items-center gap-3 shrink-0">
                     <input
                         type="file"
-                        accept=".csv"
+                        accept=".json"
                         className="hidden"
                         ref={fileInputRef}
                         onChange={handleFileChange}
@@ -248,6 +263,15 @@ export default function CompaniesDashboardPage() {
                     </table>
                 </div>
             </div>
+            
+            <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={totalCount || 0}
+                itemsPerPage={ITEMS_PER_PAGE}
+                itemName={isTronMode ? 'SECTORS' : 'COMPANIES'}
+            />
         </div >
     );
 }

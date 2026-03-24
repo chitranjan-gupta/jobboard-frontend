@@ -9,21 +9,23 @@ export const useAuth = () => useContext(AuthContext);
 
 
 export const AuthProvider = ({ children }) => {
-    // Check localStorage for an existing session lazily to avoid setState in effect
-    const [user, setUser] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const savedUser = localStorage.getItem('user');
-            if (savedUser) {
-                try {
-                    return JSON.parse(savedUser);
-                } catch (err) {
-                    console.error("Failed to parse saved user", err);
-                }
+    // Initialize with null to match server render
+    const [user, setUser] = useState(null);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        // Load session from storage after mount
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+            try {
+                setUser(JSON.parse(savedUser));
+            } catch (err) {
+                console.error("Failed to parse saved user", err);
             }
         }
-        return null;
-    });
-    
+        setIsMounted(true);
+    }, []);
+
     // Once initialized, we are no longer fundamentally loading the initial session from storage
     const [loading, setLoading] = useState(false);
 
@@ -40,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const response = await fetch(`${API_URL}/token/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -57,12 +59,13 @@ export const AuthProvider = ({ children }) => {
                 };
                 setUser(userData);
                 localStorage.setItem('user', JSON.stringify(userData));
-                return true;
+                return { success: true };
             }
-            return false;
+            const errorData = await response.json().catch(() => ({}));
+            return { success: false, error: errorData.detail || 'Login failed' };
         } catch (error) {
             console.error('Login error:', error);
-            return false;
+            return { success: false, error: error.message };
         }
     };
 
@@ -82,8 +85,28 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
     };
 
+    const signup = async (formData) => {
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const response = await fetch(`${API_URL}/auth/register/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw { response: { data: { error: errorData.detail || errorData.error || 'Registration failed' } } };
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Signup error:', error);
+            throw error;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, signup, loading }}>
             {children}
         </AuthContext.Provider>
     );

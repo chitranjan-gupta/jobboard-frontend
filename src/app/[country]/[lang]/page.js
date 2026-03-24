@@ -14,81 +14,51 @@ export default function HomePage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     
-    const { jobs, loading, error } = useJobs();
+    const { jobs, loading, error, totalCount, refreshJobs } = useJobs();
     const { isTronMode } = useTheme();
 
-    const initialCompany = searchParams.get('company') || '';
-    const initialRole = searchParams.get('role') || '';
-    const initialQuery = searchParams.get('q') || initialCompany || initialRole || '';
+    const country = params.country || 'us';
+    const lang = params.lang || 'en';
 
-    // Instead of syncing via useEffect, derive state directly from URL if possible, 
-    // or use state that is initialized from URL but can diverge.
-    // For simplicity, we initialize state from URL once per navigation, 
-    // and rely on key-remounting or pure derived state if strictly driven by URL.
-    // Since the user can type in the search box, we keep local state.
-    // To handle URL changes (e.g. going back), we derive the 'current' effective values.
-    
-    // Determine the "active" constraint from URL
-    const urlCompany = searchParams.get('company') || '';
-    const urlRole = searchParams.get('role') || '';
-    const urlQ = searchParams.get('q') || '';
-    
-    // Local state for the search input box
-    const [localQuery, setLocalQuery] = useState(urlQ || urlCompany || urlRole || '');
-
-    // If the URL changes (detected by render check), we want to reset local state.
-    // A robust way without useEffect is to check if URL derived values changed.
-    const [prevSearchStr, setPrevSearchStr] = useState(searchParams.toString());
-    if (searchParams.toString() !== prevSearchStr) {
-        setPrevSearchStr(searchParams.toString());
-        setLocalQuery(urlQ || urlCompany || urlRole || '');
-    }
-
+    // State for filters and search
+    const [localQuery, setLocalQuery] = useState(searchParams.get('search') || searchParams.get('q') || '');
+    const [debouncedQuery, setDebouncedQuery] = useState(localQuery);
     const [types, setTypes] = useState([]);
     const [locations, setLocations] = useState([]);
     const [sortBy, setSortBy] = useState('recent');
+    const [currentPage, setCurrentPage] = useState(1);
     const [selectedJob, setSelectedJob] = useState(null);
 
-    // Provide derived active filters. If user types, we break strict exact matches.
-    const isStrictCompany = localQuery === urlCompany && urlCompany !== '';
-    const isStrictRole = localQuery === urlRole && urlRole !== '';
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedQuery(localQuery);
+            setCurrentPage(1); // Reset to page 1 on search change
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [localQuery]);
 
-    const handleSetQuery = (val) => {
-        setLocalQuery(val);
-    };
+    // Reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [types, locations, sortBy]);
 
-    const filteredJobs = jobs.filter(job => {
-        // Strict public visibility rules: only approved, unexpired jobs
-        if (job.status !== 'approved') return false;
-        if (job.expiryDate && new Date(job.expiryDate) < new Date()) return false;
+    // Fetch jobs whenever filters or pagination changes
+    useEffect(() => {
+        const queryParams = new URLSearchParams();
+        queryParams.set('page', currentPage);
+        if (debouncedQuery) queryParams.set('search', debouncedQuery);
+        if (types.length > 0) queryParams.set('jobType', types.join(','));
+        if (locations.length > 0) queryParams.set('locationType', locations.join(','));
+        
+        // Sorting
+        if (sortBy === 'recent') queryParams.set('ordering', '-postedAt');
+        else if (sortBy === 'relevant') queryParams.set('ordering', 'title');
 
-        // Apply strict match if the filter is active and hasn't been modified by user
-        if (isStrictCompany) {
-            if (job.company !== urlCompany) return false;
-        } else if (isStrictRole) {
-            if (job.title !== urlRole) return false;
-        } else {
-            // Generic fallback search
-            const qLower = localQuery.toLowerCase();
-            const matchesSearch = !qLower || job.title.toLowerCase().includes(qLower) ||
-                job.company.toLowerCase().includes(qLower) ||
-                job.tags.some(tag => tag.toLowerCase().includes(qLower));
-            if (!matchesSearch) return false;
-        }
+        refreshJobs(`/jobs/?${queryParams.toString()}`);
+    }, [currentPage, debouncedQuery, types, locations, sortBy, refreshJobs]);
 
-        const matchesType = types.length === 0 || types.includes(job.jobType);
-        const matchesLocation = locations.length === 0 || locations.includes(job.locationType);
-
-        return matchesType && matchesLocation;
-    });
-
-    if (sortBy === 'recent') {
-        filteredJobs.sort((a, b) => b.id - a.id); // Sort by newest ID
-    } else if (sortBy === 'relevant') {
-        filteredJobs.sort((a, b) => a.title.length - b.title.length);
-    }
-
-    if (loading) {
+    if (loading && jobs.length === 0) {
         return (
             <div className={`flex flex-col items-center justify-center min-h-screen ${isTronMode ? 'bg-ares-black/95' : 'bg-slate-50'}`}>
                 <div className="relative flex items-center justify-center">
@@ -136,11 +106,20 @@ export default function HomePage() {
             <Header />
             <main className="flex flex-col lg:flex-row gap-8 flex-1">
                 <FilterSidebar
-                    query={localQuery} setQuery={handleSetQuery}
+                    query={localQuery} setQuery={setLocalQuery}
                     types={types} setTypes={setTypes}
                     locations={locations} setLocations={setLocations}
                 />
-                <JobList jobs={filteredJobs} sortBy={sortBy} setSortBy={setSortBy} onJobClick={(job) => setSelectedJob(job)} />
+                <JobList 
+                    jobs={jobs} 
+                    totalCount={totalCount}
+                    currentPage={currentPage}
+                    onPageChange={setCurrentPage}
+                    sortBy={sortBy} 
+                    setSortBy={setSortBy} 
+                    onJobClick={(job) => setSelectedJob(job)} 
+                    loading={loading}
+                />
             </main>
             <JobDetailsModal job={selectedJob} onClose={() => setSelectedJob(null)} />
         </div>

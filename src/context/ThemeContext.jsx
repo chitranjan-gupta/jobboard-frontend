@@ -4,19 +4,26 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-    // Initialize theme based on localStorage if available (client-side only), fallback to normal
-    const [theme, setTheme] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('app-theme') || 'normal';
-        }
-        return 'normal'; // Default to normal for SSR
-    });
-
-    const isTronMode = theme === 'tron';
+    const [theme, setTheme] = useState('normal'); // Default to normal for SSR
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        localStorage.setItem('app-theme', theme);
-    }, [theme]);
+        // Run once on mount to get the stored theme
+        const storedTheme = localStorage.getItem('app-theme');
+        if (storedTheme) {
+            setTheme(storedTheme);
+        }
+        setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isMounted) {
+            localStorage.setItem('app-theme', theme);
+        }
+    }, [theme, isMounted]);
+
+    // Force normal mode until mounted to prevent hydration errors!
+    const isTronMode = isMounted ? theme === 'tron' : false;
 
     const toggleTheme = () => {
         setTheme(prev => prev === 'tron' ? 'normal' : 'tron');
