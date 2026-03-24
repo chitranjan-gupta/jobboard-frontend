@@ -1,0 +1,25 @@
+{
+    "header": {
+        "app_name": "Tablero Antigravity",
+        "jobs": "Buscar Empleos",
+        "companies": "Empresas",
+        "salaries": "Salarios",
+        "signin": "Entrar",
+        "admin": "Registrarse"
+    },
+    "sidebar": {
+        "search": "Buscar",
+        "search_placeholder": "Título, palabra clave, o empresa...",
+        "job_type": "Tipo de Empleo",
+        "location": "Ubicación"
+    },
+    "joblist": {
+        "available_jobs": "Empleos Disponibles",
+        "viewing": "Viendo",
+        "listed_positions": "chambas listadas (MX)",
+        "sort_newest": "Ordenar: Más recientes",
+        "sort_relevant": "Ordenar: Relevantes",
+        "no_jobs_found": "No se encontraron empleos",
+        "try_adjusting": "Intenta ajustar los filtros o los términos de búsqueda."
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "header": {
+        "app_name": "Antigravity Board",
+        "jobs": "Find Jobs",
+        "companies": "Companies",
+        "salaries": "Salaries",
+        "signin": "Signin",
+        "admin": "Signup"
+    },
+    "sidebar": {
+        "search": "Search",
+        "search_placeholder": "Job title, keyword, or company...",
+        "job_type": "Job Type",
+        "location": "Location"
+    },
+    "joblist": {
+        "available_jobs": "Available Jobs",
+        "viewing": "Viewing",
+        "listed_positions": "listed positions (US)",
+        "sort_newest": "Sort: Newest",
+        "sort_relevant": "Sort: Relevant",
+        "no_jobs_found": "No Jobs Found",
+        "try_adjusting": "Try adjusting your filters or search terms."
+    }
+}
