@@ -94,6 +94,11 @@ export default function UserManagementPage() {
     const reject = (id, n) => doAction(`${API_BASE_URL}/auth/reject-user/${id}/`, 'DELETE', `${id}-reject`, `❌ ${n} rejected.`);
     const revoke = (id, n) => doAction(`${API_BASE_URL}/auth/revoke-user/${id}/`, 'POST', `${id}-revoke`, `🔒 ${n}'s access revoked.`);
     const restore = (id, n) => doAction(`${API_BASE_URL}/auth/reapprove-user/${id}/`, 'POST', `${id}-restore`, `🔓 ${n}'s access restored.`);
+    const permanentlyDelete = (id, n) => {
+        if (window.confirm(`${isTronMode ? 'CRITICAL_WARNING: PURGE_DATA_VECTOR [' : 'Warning: Are you sure you want to PERMANENTLY delete '}${n}${isTronMode ? ']? AUTH_RECORDS_ONLY_CONTENT_PRESERVED' : '? This will only remove their login account, their jobs/companies will remain.'}`)) {
+            doAction(`${API_BASE_URL}/auth/delete-user/${id}/`, 'DELETE', `${id}-delete`, `🗑️ ${n} deleted.`);
+        }
+    };
 
     const Btn = ({ id, act, label, name, style, tronStyle }) => (
         <button onClick={() => act(id, name)} disabled={actionLoading?.startsWith(`${id}-`)}
@@ -213,6 +218,9 @@ export default function UserManagementPage() {
                                             <Btn id={u.id} act={revoke} label={isTronMode ? "Terminate" : "Revoke"} name={u.username}
                                                 style="bg-white text-red-600 border border-red-200 hover:bg-red-50"
                                                 tronStyle="bg-ares-black text-slate-400 border border-dark-border hover:bg-ares-red/10 hover:text-ares-red hover:border-ares-red/50 hover:shadow-[0_0_15px_rgba(255,30,30,0.3)]" />
+                                            <Btn id={u.id} act={permanentlyDelete} label={isTronMode ? "Purge" : "Delete"} name={u.username}
+                                                style="bg-red-600 text-white hover:bg-red-700"
+                                                tronStyle="bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]" />
                                         </>
                                     )}
                                     {activeTab === 'revoked' && (
@@ -222,11 +230,19 @@ export default function UserManagementPage() {
                                             <Btn id={u.id} act={restore} label={isTronMode ? "Restore" : "Re-approve"} name={u.username}
                                                 style="bg-primary text-white hover:bg-primary-hover"
                                                 tronStyle="bg-neon-cyan/5 text-neon-cyan border border-neon-cyan/30 hover:bg-neon-cyan/20 hover:shadow-[0_0_15px_rgba(0,243,254,0.3)]" />
+                                            <Btn id={u.id} act={permanentlyDelete} label={isTronMode ? "Purge" : "Delete"} name={u.username}
+                                                style="bg-red-600 text-white hover:bg-red-700 ml-2"
+                                                tronStyle="bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]" />
                                         </>
                                     )}
                                     {activeTab === 'rejected' && (
-                                        <span className={`text-[10px] tracking-widest font-bold px-2 py-1 rounded border flex items-center ${isTronMode ? 'text-ares-red bg-ares-red/10 border-ares-red/30 font-mono' : 'text-red-700 bg-red-50 border-red-200'
-                                            }`}>{isTronMode ? 'DENIED' : 'REJECTED'}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] tracking-widest font-bold px-2 py-1 rounded border flex items-center ${isTronMode ? 'text-ares-red bg-ares-red/10 border-ares-red/30 font-mono' : 'text-red-700 bg-red-50 border-red-200'
+                                                }`}>{isTronMode ? 'DENIED' : 'REJECTED'}</span>
+                                            <Btn id={u.id} act={permanentlyDelete} label={isTronMode ? "Purge" : "Delete"} name={u.username}
+                                                style="bg-red-600 text-white hover:bg-red-700"
+                                                tronStyle="bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]" />
+                                        </div>
                                     )}
                                 </Row>
                             ))}

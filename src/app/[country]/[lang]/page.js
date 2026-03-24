@@ -28,6 +28,7 @@ export default function HomePage() {
     const [sortBy, setSortBy] = useState('recent');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedJob, setSelectedJob] = useState(null);
+    const companyFilter = searchParams.get('company');
 
     // Debounce search query
     useEffect(() => {
@@ -41,7 +42,7 @@ export default function HomePage() {
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [types, locations, sortBy]);
+    }, [types, locations, sortBy, companyFilter]);
 
     // Fetch jobs whenever filters or pagination changes
     useEffect(() => {
@@ -50,13 +51,14 @@ export default function HomePage() {
         if (debouncedQuery) queryParams.set('search', debouncedQuery);
         if (types.length > 0) queryParams.set('jobType', types.join(','));
         if (locations.length > 0) queryParams.set('locationType', locations.join(','));
+        if (companyFilter) queryParams.set('company_obj__name', companyFilter);
         
         // Sorting
         if (sortBy === 'recent') queryParams.set('ordering', '-postedAt');
         else if (sortBy === 'relevant') queryParams.set('ordering', 'title');
 
         refreshJobs(`/jobs/?${queryParams.toString()}`);
-    }, [currentPage, debouncedQuery, types, locations, sortBy, refreshJobs]);
+    }, [currentPage, debouncedQuery, types, locations, sortBy, companyFilter, refreshJobs]);
 
     if (loading && jobs.length === 0) {
         return (
@@ -110,16 +112,38 @@ export default function HomePage() {
                     types={types} setTypes={setTypes}
                     locations={locations} setLocations={setLocations}
                 />
-                <JobList 
-                    jobs={jobs} 
-                    totalCount={totalCount}
-                    currentPage={currentPage}
-                    onPageChange={setCurrentPage}
-                    sortBy={sortBy} 
-                    setSortBy={setSortBy} 
-                    onJobClick={(job) => setSelectedJob(job)} 
-                    loading={loading}
-                />
+                <div className="flex-1 flex flex-col gap-4">
+                    {companyFilter && (
+                        <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${isTronMode ? 'glass-panel border-neon-cyan/30 bg-neon-cyan/5' : 'bg-primary/5 border-primary/20'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isTronMode ? 'bg-neon-cyan text-black shadow-[0_0_10px_rgba(0,243,254,0.5)]' : 'bg-primary text-white'}`}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                </div>
+                                <p className={`text-sm font-black uppercase tracking-widest ${isTronMode ? 'text-neon-cyan font-mono' : 'text-primary'}`}>
+                                    {isTronMode ? 'FILTER_STATUS: [ENTITY::' : 'Filtering by: '} 
+                                    <span className={isTronMode ? 'text-white' : 'font-bold'}>{companyFilter}</span>
+                                    {isTronMode && ']'}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => router.push(`/${country}/${lang}/`)}
+                                className={`px-3 py-1.5 text-[0.6rem] font-black uppercase tracking-[0.2em] rounded transition-all ${isTronMode ? 'bg-ares-red/10 text-ares-red border border-ares-red/30 hover:bg-ares-red hover:text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 hover:text-primary'}`}
+                            >
+                                {isTronMode ? 'TERMINATE_FILTER' : 'Clear Filter'}
+                            </button>
+                        </div>
+                    )}
+                    <JobList 
+                        jobs={jobs} 
+                        totalCount={totalCount}
+                        currentPage={currentPage}
+                        onPageChange={setCurrentPage}
+                        sortBy={sortBy} 
+                        setSortBy={setSortBy} 
+                        onJobClick={(job) => setSelectedJob(job)} 
+                        loading={loading}
+                    />
+                </div>
             </main>
             <JobDetailsModal job={selectedJob} onClose={() => setSelectedJob(null)} />
         </div>

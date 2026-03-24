@@ -7,6 +7,7 @@ import { useJobs } from '@/context/JobContext';
 import { useCompanies } from '@/context/CompanyContext';
 import { useTheme } from '@/context/ThemeContext';
 import PaginationControls from '@/components/PaginationControls';
+import CompanyDetailsModal from '@/components/CompanyDetailsModal';
 import Image from 'next/image';
 
 export default function CompaniesPage() {
@@ -18,6 +19,7 @@ export default function CompaniesPage() {
     const [localQuery, setLocalQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedCompany, setSelectedCompany] = useState(null);
     const ITEMS_PER_PAGE = 12;
 
     const country = params.country || 'us';
@@ -41,7 +43,11 @@ export default function CompaniesPage() {
         fetchCompanies(`/companies/?${queryParams.toString()}`);
     }, [currentPage, debouncedQuery, fetchCompanies]);
 
-    const handleCompanyClick = (companyName) => {
+    const handleCompanyClick = (company) => {
+        setSelectedCompany(company);
+    };
+
+    const handleViewJobs = (companyName) => {
         router.push(`/${country}/${lang}/?company=${encodeURIComponent(companyName)}`);
     };
 
@@ -92,10 +98,18 @@ export default function CompaniesPage() {
                     <>
                         <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 ${loading ? 'opacity-50 grayscale-[0.5]' : ''}`}>
                             {companies.map(company => (
-                                <button
+                                <div
                                     key={company.id}
-                                    onClick={() => handleCompanyClick(company.name)}
-                                    className={`text-left rounded-xl p-5 transition-all duration-300 group overflow-hidden relative border ${isTronMode
+                                    onClick={() => handleCompanyClick(company)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleCompanyClick(company);
+                                        }
+                                    }}
+                                    className={`text-left rounded-xl p-5 transition-all duration-300 group overflow-hidden relative border cursor-pointer ${isTronMode
                                             ? 'glass-panel border-dark-border hover:border-neon-cyan/50 hover:shadow-neon-cyan'
                                             : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-primary/30'
                                         }`}
@@ -140,12 +154,20 @@ export default function CompaniesPage() {
                                                 </span>
                                             ))}
                                         </div>
-                                        <span className={`text-xs font-medium transition-colors whitespace-nowrap uppercase tracking-widest ${isTronMode ? 'text-ares-red font-mono group-hover:text-neon-cyan' : 'text-primary'
-                                            }`}>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleViewJobs(company.name);
+                                            }}
+                                            className={`text-xs font-black transition-all whitespace-nowrap uppercase tracking-[0.2em] relative z-20 px-3 py-1.5 rounded-lg border transition-all ${isTronMode 
+                                                ? 'text-ares-red border-ares-red/30 hover:bg-ares-red/10 hover:border-ares-red/60 font-mono' 
+                                                : 'text-primary border-primary/20 hover:bg-primary/5 hover:border-primary/50'
+                                            }`}
+                                        >
                                             {isTronMode ? 'Trace →' : 'View Jobs →'}
-                                        </span>
+                                        </button>
                                     </div>
-                                </button>
+                                </div>
                             ))}
                         </div>
                         <PaginationControls
@@ -159,6 +181,11 @@ export default function CompaniesPage() {
                     </>
                 )}
             </main>
+            <CompanyDetailsModal 
+                company={selectedCompany} 
+                onClose={() => setSelectedCompany(null)} 
+                onViewJobs={handleViewJobs}
+            />
         </div>
     );
 }
